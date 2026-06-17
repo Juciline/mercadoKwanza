@@ -51,4 +51,32 @@ na linha 387, a solução foi remover a linha extra.
    - Com loops (WHILE) muda-se um número para aumentar a quantidade
    - A procedure é preparada uma só vez, INSERTs soltos o MySQL lê e
      interpreta um por um, o que é mais lento.
-   - RAND(), MOD() e ELT() geram dados realistas diferentes a cada execução
+    - RAND(), MOD() e ELT() geram dados realistas diferentes a cada execução
+
+═══════════════════════════════════════════
+REFLEXÃO ESCRITA — FASE 0
+═══════════════════════════════════════════
+
+1. O script gerado pela IA funcionou directamente ou precisou de correcções? Que tipo de erros surgiram e o que aprenderam ao corrigi-los?
+
+Não funcionou de primeira. Achámos dois erros: uma linha que juntou o nome da procedure com o comando SET FOREIGN_KEY_CHECKS, e uma chamada CALL repetida no fim depois da procedure já ter sido apagada. Aprendemos que a IA às vezes alucina e junta coisas que não devia. Agora sabemos: testar sempre o script antes de assumir que está pronto.
+
+2. Porque é que o grupo decidiu usar stored procedures com loops em vez de INSERT linha a linha? Qual a vantagem em termos de tempo e manutenção?
+
+Escrever 125 mil INSERTs manualmente não faz sentido. Com loops, se precisarmos de 50 mil vendas em vez de 30 mil, muda-se um número no WHILE. Além disso, a procedure é compilada uma vez, os INSERTs soltos o MySQL lê um por um — muito mais lento. E com RAND() e ELT() conseguimos dados diferentes de cada vez que corremos.
+
+═══════════════════════════════════════════
+REFLEXÃO ESCRITA — FASE 1
+═══════════════════════════════════════════
+
+1. O que significa o mapeamento de portas '3307:3306'? Porque é que os nós Benguela e Huambo não podem também usar a porta 3306 no anfitrião?
+
+O lado direito (3306) é a porta dentro do contentor, onde o MySQL está à escuta. O lado esquerdo (3307, 3308) é a porta no computador anfitrião que encaminha para dentro do contentor. Como só uma aplicação pode ocupar uma porta de cada vez no anfitrião, e a 3306 já está a ser usada pelo nó Luanda (ou pelo MySQL local), os outros nós têm de usar portas diferentes para não haver conflito.
+
+2. Qual a vantagem de usar o volume './dados:/docker-entrypoint-initdb.d'? O que aconteceria se não usassem esse volume e quisessem carregar os dados manualmente?
+
+O MySQL corre automaticamente todos os scripts .sql que encontra nessa pasta quando o contentor arranca pela primeira vez. Sem o volume, teríamos de fazer COPY para dentro do contentor e depois executar SOURCE manualmente — mais trabalho e mais propenso a erros. O volume automatiza todo o processo de carga inicial.
+
+3. Se desligarem o computador e voltarem a ligar, os dados permanecem? Testem e documentem o que observam.
+
+Testámos com docker restart no-luanda e os dados continuam lá: 30000 vendas. Mas atenção: se fizermos docker compose down (que apaga os contentores) e depois up, os dados perdem-se porque não configurámos volumes persistentes para o MySQL. O script volta a carregar os dados do início porque a pasta ./dados está montada como init. Para ter dados realmente persistentes, seria preciso um volume como ./mysql-data:/var/lib/mysql.

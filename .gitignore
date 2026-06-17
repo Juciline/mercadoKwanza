@@ -9,6 +9,9 @@ Thumbs.db
 # Temp files (Word, etc.)
 ~$*
 *.tmp
+*.backup.*
+
+
 
 # IDE
 .vscode/
