@@ -6,6 +6,10 @@
 Thumbs.db
 .DS_Store
 
+# Temp files (Word, etc.)
+~$*
+*.tmp
+
 # IDE
 .vscode/
 .idea/

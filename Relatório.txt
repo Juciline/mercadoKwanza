@@ -1,0 +1,54 @@
+RELATÓRIO DE ERROS E RESOLUÇÕES — MercadoKwanza
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Erro após gerar o ficheiro .sql no MysqlWorkbench
+
+1. Encontramos erros sim (linha 8), o FOREIGN_KEY_CHECKS CONCATENADO
+que corresponde a uma Sintaxe inválida com isso o MySQL rejeita a instrução.
+A solução foi separar para SET FOREIGN_KEY_CHECKS = 0;
+
+2. ALL sp_inserir_vendas() na linha (405), a chamada à 
+procedure depois de ela já ter sido eliminada pelo DROP PROCEDURE
+na linha 387, a solução foi remover a linha extra.
+
+3. TIMEOUT DE 30s ao INSERIR 30.000 VENDAS (Error Code: 2013)
+   Erro: A procedure original executava 150.000 instruções SQL
+    individuais SEM transacção.
+   
+   Resoluções:
+   1) START TRANSACTION / COMMIT
+      -> Reduziu de ~150.000 fsyncs para 1 único flush no final.
+   2) Tabela temporária tmp_preco
+      -> Pré-carrega os preços dos 200 produtos em memória, eliminando
+         90.000 SELECTs individuais à tabela PRODUTO dentro do loop.
+   3) Total calculado antes do INSERT
+      -> O total da venda é calculado no próprio loop e inserido de uma
+         vez, eliminando 30.000 UPDATEs VENDA que antes corrigiam o total.
+   Resultado: Script completo em segundos, 30.000 vendas e 90.000 itens.
+
+4. PORQUE STORED PROCEDURES EM VEZ DE INSERT MANUAL?
+   - 125 mil INSERTs escritos à mão dá muito trabalho e é difícil de manter
+   - Com loops (WHILE) muda-se um número para aumentar a quantidade
+   - A procedure é preparada uma só vez, INSERTs soltos o MySQL lê e
+     interpreta um por um, o que é mais lento.
+   - RAND(), MOD() e ELT() geram dados realistas diferentes a cada execução
