@@ -1,40 +1,58 @@
-version: "3.8"
+version: '3.8'
 
 services:
-  mysql-master:
+  # ── NÓ 1: LUANDA — Servidor Principal (Master) ──
+  mysql-luanda:
     image: mysql:8.0
-    container_name: mercadokwanza-master
+    container_name: no-luanda
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: kwanza2024
+      MYSQL_DATABASE: mercadokwanza
     ports:
-      - "3306:3306"
+      - '3306:3306'
     volumes:
       - ./dados:/docker-entrypoint-initdb.d
     command: >
       --server-id=1
       --log-bin=mysql-bin
-      --binlog-do-db=mercadokwanza
+      --binlog-format=ROW
+      --character-set-server=utf8mb4
 
-  mysql-slave1:
+  # ── NÓ 2: BENGUELA — Réplica 1 (Slave) ──
+  mysql-benguela:
     image: mysql:8.0
-    container_name: mercadokwanza-slave1
+    container_name: no-benguela
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: kwanza2024
+      MYSQL_DATABASE: mercadokwanza
     ports:
-      - "3307:3306"
+      - '3307:3306'
     command: >
       --server-id=2
-      --log-bin=mysql-bin
-      --relay-log=relay-log
+      --character-set-server=utf8mb4
 
-  mysql-slave2:
+  # ── NÓ 3: HUAMBO — Réplica 2 (Slave) ──
+  mysql-huambo:
     image: mysql:8.0
-    container_name: mercadokwanza-slave2
+    container_name: no-huambo
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: kwanza2024
+      MYSQL_DATABASE: mercadokwanza
     ports:
-      - "3308:3306"
+      - '3308:3306'
     command: >
       --server-id=3
-      --log-bin=mysql-bin
-      --relay-log=relay-log
+      --character-set-server=utf8mb4
+
+  # ── NÓ 4: MONGODB — Sistema NoSQL (usado na Parte 2) ──
+  mongodb:
+    image: mongo:7.0
+    container_name: mongo-kwanza
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: mercadokwanza
