@@ -80,3 +80,47 @@ O MySQL corre automaticamente todos os scripts .sql que encontra nessa pasta qua
 3. Se desligarem o computador e voltarem a ligar, os dados permanecem? Testem e documentem o que observam.
 
 Testámos com docker restart no-luanda e os dados continuam lá: 30000 vendas. Mas atenção: se fizermos docker compose down (que apaga os contentores) e depois up, os dados perdem-se porque não configurámos volumes persistentes para o MySQL. O script volta a carregar os dados do início porque a pasta ./dados está montada como init. Para ter dados realmente persistentes, seria preciso um volume como ./mysql-data:/var/lib/mysql.
+
+═══════════════════════════════════════════
+REFLEXÃO ESCRITA — P1-A e P1-B
+═══════════════════════════════════════════
+
+1. O Slave conseguiu acompanhar o Master em tempo real? Qual foi o atraso máximo observado?
+
+O Seconds_Behind_Master ficou sempre em 0. Na prática, os 5 novos produtos que inserimos estavam visíveis no slave antes de conseguirmos medir — replicação praticamente instantânea. Isto porque estávamos em rede local, sem carga extra.
+
+2. Como verificaram que a soma dos fragmentos corresponde ao total geral? Explique o raciocínio.
+
+Corremos SELECT COUNT(*) da VENDA em cada fragmento (Luanda lojas 1-5, Benguela 6-10, Huambo 11-15) e somámos: 10012 + 9937 + 10052 = 30001, que é exactamente o COUNT(*) da VENDA no master. Isto confirma que a fragmentação horizontal está correcta — nenhuma venda se perdeu nem duplicou.
+
+3. Qual a província com maior faturamento médio por cliente e o que isso sugere sobre o negócio?
+
+Benguela, com 50.376 Kz por cliente. Isto sugere que os clientes de Benguela compram mais por transacção, embora Luanda tenha mais vendas no total. Pode ser um mercado de maior poder de compra ou simplesmente menos clientes mas mais fiéis.
+
+═══════════════════════════════════════════
+REFLEXÃO ESCRITA — P2-A e P2-B
+═══════════════════════════════════════════
+
+1. O que aconteceu ao stock e às vendas quando o erro foi forçado? O ROLLBACK funcionou como esperado?
+
+Sim. Forçámos um erro depois de decrementar o stock em Benguela e inserir a venda em Luanda. O ROLLBACK reverteu ambas as operações: o stock voltou a 88 e as vendas a 30002. Se não houvesse transacção distribuída, o stock ficava descontado sem venda correspondente.
+
+2. Na transferência entre Huambo e Benguela, o que aconteceu quando o stock era insuficiente? O ROLLBACK foi automático?
+
+Sim. Quando pedimos para transferir 9999 unidades (muito acima do stock disponível em Huambo, que era 141), o script detectou stock insuficiente antes de qualquer UPDATE. Fez ROLLBACK em ambos os nós e nenhum dos stocks foi alterado. O sistema manteve-se consistente.
+
+═══════════════════════════════════════════
+REFLEXÃO ESCRITA — P3-A e P3-B
+═══════════════════════════════════════════
+
+1. O MongoDB foi mais rápido que o MySQL nas agregações? Porquê?
+
+Sim, o MongoDB foi mais rápido nas duas queries: total por loja (45 ms contra 55 ms) e top 10 clientes (19 ms contra 61 ms). O MongoDB guarda os dados num formato documental que evita JOINs — a venda já vem com os itens dentro. No MySQL, a agregação precisa de percorrer VENDA e ITEM_VENDA separadamente. A diferença é mais notória em agregações complexas.
+
+2. Os resultados do MongoDB coincidiram com os do MySQL? O que isso prova?
+
+Sim, o top 1 cliente foi o mesmo (António Gomes) e os totais por loja bateram certo. Isto prova que a migração foi correcta: mesmo sem constraints, o MongoDB tem os mesmos dados e produz as mesmas respostas.
+
+3. Para o MercadoKwanza, recomendaria MySQL ou MongoDB? Em quê?
+
+Os dois. MySQL para as transacções do dia-a-dia (vender, actualizar stock) porque precisa de ACID. MongoDB para relatórios e agregacões porque é mais rápido e mais flexível. Um sistema híbrido tira partido do melhor de cada um.

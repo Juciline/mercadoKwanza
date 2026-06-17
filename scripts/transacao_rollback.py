@@ -35,6 +35,9 @@ try:
     )
     print(f'[Benguela] Stock decrementado: -{QUANTIDADE} unidades')
 
+    # Forcar erro antes do INSERT em Luanda
+    raise Exception('Erro simulado antes do INSERT em Luanda')
+
     cur_l.execute(
         'INSERT INTO VENDA (loja_id, cliente_id, data_venda, total) VALUES (%s,%s,NOW(),%s)',
         (LOJA_LUANDA, CLIENTE_ID, QUANTIDADE * 1500)
