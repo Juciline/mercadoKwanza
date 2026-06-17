@@ -326,53 +326,60 @@ BEGIN
   DECLARE v_desc     DECIMAL(5,2);
   DECLARE item_total DECIMAL(12,2);
 
+  -- Pré-carregar preços para evitar SELECT dentro do loop
+  CREATE TEMPORARY TABLE tmp_preco (
+    id    INT UNSIGNED PRIMARY KEY,
+    preco DECIMAL(10,2)
+  );
+  INSERT INTO tmp_preco SELECT id, preco FROM PRODUTO;
+
+  START TRANSACTION;
+
   WHILE i <= 30000 DO
-    -- Loja aleatória (1-15)
-    SET v_loja = 1 + MOD(i * 11 + FLOOR(RAND()*7), 15);
-
-    -- Cliente da mesma ou outra província (realista)
+    SET v_loja    = 1 + MOD(i * 11 + FLOOR(RAND()*7), 15);
     SET v_cliente = 1 + MOD(i * 97 + FLOOR(RAND()*500), 5000);
+    SET v_data    = DATE_ADD('2023-01-01 08:00:00',
+                    INTERVAL FLOOR(RAND() * 730 * 24 * 60) MINUTE);
+    SET v_total   = 0;
+    SET n_itens   = 2 + MOD(i, 3);
+    SET j         = 1;
 
-    -- Data aleatória entre 2023-01-01 e 2024-12-31
-    SET v_data = DATE_ADD(
-      '2023-01-01 08:00:00',
-      INTERVAL FLOOR(RAND() * 730 * 24 * 60) MINUTE
-    );
-
-    SET v_total = 0;
-
-    -- Inserir a venda (total provisório = 0)
-    INSERT INTO VENDA (loja_id, cliente_id, data_venda, total)
-    VALUES (v_loja, v_cliente, v_data, 0);
-
-    SET v_id = LAST_INSERT_ID();
-
-    -- 2 a 4 itens por venda
-    SET n_itens = 2 + MOD(i, 3);
-    SET j = 1;
-
+    -- Calcular total antes de inserir a venda
     WHILE j <= n_itens DO
       SET v_produto = 1 + MOD(i * j * 31 + FLOOR(RAND()*50), 200);
       SET v_qtd     = 1 + MOD(i * j, 10);
-      SELECT preco INTO v_preco FROM PRODUTO WHERE id = v_produto;
-      SET v_desc    = CASE WHEN MOD(j, 5) = 0 THEN 5.00
-                           WHEN MOD(j, 3) = 0 THEN 2.50
-                           ELSE 0.00 END;
-
-      SET item_total = v_qtd * v_preco * (1 - v_desc / 100);
-      SET v_total    = v_total + item_total;
-
-      INSERT INTO ITEM_VENDA (venda_id, produto_id, qtd, preco_unit, desconto)
-      VALUES (v_id, v_produto, v_qtd, v_preco, v_desc);
-
+      SELECT preco INTO v_preco FROM tmp_preco WHERE id = v_produto;
+      SET v_desc = CASE WHEN MOD(j, 5) = 0 THEN 5.00
+                        WHEN MOD(j, 3) = 0 THEN 2.50 ELSE 0.00 END;
+      SET v_total = v_total + v_qtd * v_preco * (1 - v_desc / 100);
       SET j = j + 1;
     END WHILE;
 
-    -- Actualizar total da venda
-    UPDATE VENDA SET total = ROUND(v_total, 2) WHERE id = v_id;
+    -- Inserir venda com o total correcto
+    INSERT INTO VENDA (loja_id, cliente_id, data_venda, total)
+    VALUES (v_loja, v_cliente, v_data, ROUND(v_total, 2));
+
+    SET v_id = LAST_INSERT_ID();
+    SET j = 1;
+
+    -- Inserir itens
+    WHILE j <= n_itens DO
+      SET v_produto = 1 + MOD(i * j * 31 + FLOOR(RAND()*50), 200);
+      SET v_qtd     = 1 + MOD(i * j, 10);
+      SELECT preco INTO v_preco FROM tmp_preco WHERE id = v_produto;
+      SET v_desc = CASE WHEN MOD(j, 5) = 0 THEN 5.00
+                        WHEN MOD(j, 3) = 0 THEN 2.50 ELSE 0.00 END;
+
+      INSERT INTO ITEM_VENDA (venda_id, produto_id, qtd, preco_unit, desconto)
+      VALUES (v_id, v_produto, v_qtd, v_preco, v_desc);
+      SET j = j + 1;
+    END WHILE;
 
     SET i = i + 1;
   END WHILE;
+
+  COMMIT;
+  DROP TEMPORARY TABLE tmp_preco;
 END$$
 
 DELIMITER ;
