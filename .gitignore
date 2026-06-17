@@ -1,0 +1,14 @@
+# MySQL
+*.sql.bak
+*.sql.old
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
