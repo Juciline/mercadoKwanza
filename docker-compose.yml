@@ -10,7 +10,7 @@ services:
       MYSQL_ROOT_PASSWORD: kwanza2024
       MYSQL_DATABASE: mercadokwanza
     ports:
-      - '3306:3306'
+      - '3316:3306'
     volumes:
       - ./dados:/docker-entrypoint-initdb.d
     command: >
